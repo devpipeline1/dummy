@@ -7,9 +7,6 @@ on:
     paths:
       - 'app-sourcecode/**'
       - '.github/workflows/ci.yaml'
-    paths-ignore:
-      - 'helm/**'
-      - 'README.md'
 
   workflow_dispatch:
 
