@@ -1,0 +1,33 @@
+# Optional standalone EBS PersistentVolumeClaim demonstration.
+# Apply storageclass-ebs-gp3.yaml first. The EBS CSI driver dynamically creates
+# the PersistentVolume (PV) after this PVC is consumed by a Pod.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ebs-volume-demo-pvc
+  namespace: microservices-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ebs-gp3
+  resources:
+    requests:
+      storage: 3Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ebs-volume-demo
+  namespace: microservices-demo
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      command: ["sh", "-c", "while true; do date >> /data/demo.log; sleep 10; done"]
+      volumeMounts:
+        - name: ebs-storage
+          mountPath: /data
+  volumes:
+    - name: ebs-storage
+      persistentVolumeClaim:
+        claimName: ebs-volume-demo-pvc

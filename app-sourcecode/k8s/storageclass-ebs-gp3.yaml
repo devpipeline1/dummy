@@ -1,0 +1,14 @@
+# Dynamic provisioning of encrypted gp3 Amazon EBS volumes.
+# A PersistentVolume is created automatically for each bound PVC.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-gp3
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  fsType: ext4
+  encrypted: "true"
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
