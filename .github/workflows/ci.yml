@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app-sourcecode/**'
+      - '.github/workflows/ci.yaml'
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
+jobs:
+
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service:
+          - frontend
+          - product-api
+          - order-api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push ${{ matrix.service }} Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./app-sourcecode/${{ matrix.service }}
+          file: ./app-sourcecode/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/shopsphere-${{ matrix.service }}:${{ github.run_id }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/shopsphere-${{ matrix.service }}:latest
+
+  update-helm-values:
+    name: Update Helm Image Tags
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update Helm values.yaml
+        uses: mikefarah/yq@v4.44.3
+        with:
+          cmd: |
+            yq -i '.frontend.image.repository = strenv(DOCKERHUB_USERNAME) + "/shopsphere-frontend"' helm/values.yaml
+            yq -i '.frontend.image.tag = strenv(IMAGE_TAG)' helm/values.yaml
+            
+            yq -i '.productApi.image.repository = strenv(DOCKERHUB_USERNAME) + "/shopsphere-product-api"' helm/values.yaml
+            yq -i '.productApi.image.tag = strenv(IMAGE_TAG)' helm/values.yaml
+            
+            yq -i '.orderApi.image.repository = strenv(DOCKERHUB_USERNAME) + "/shopsphere-order-api"' helm/values.yaml
+            yq -i '.orderApi.image.tag = strenv(IMAGE_TAG)' helm/values.yaml
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG: ${{ github.run_id }}
+
+      - name: Commit and Push Helm Changes
+        run: |
+          git config --global user.email "devpipelinepulse@gmail.com"
+          git config --global user.name "devpipeline1"
+
+          git add helm/values.yaml
+
+          if git diff --cached --quiet; then
+            echo "No Helm changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Update Helm image tags to ${{ github.run_id }}"
+          git push

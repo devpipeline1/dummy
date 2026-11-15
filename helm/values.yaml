@@ -1,2 +1,17 @@
 global:
   namespace: dev
+
+frontend:
+  image:
+    repository: devpipeline/shopsphere-frontend
+    tag: "v1"
+
+productApi:
+  image:
+    repository: devpipeline/shopsphere-product-api
+    tag: "v1"
+
+orderApi:
+  image:
+    repository: devpipeline/shopsphere-order-api
+    tag: "v1"
